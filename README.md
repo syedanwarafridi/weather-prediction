@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Weather Prediction App
 
 A Django-based web application that provides weather predictions using the Open-Meteo API. Features user registration, authentication, and weather prediction tracking.
@@ -205,3 +206,7 @@ curl -X POST http://127.0.0.1:8000/register/ \
     "email": "test@example.com",
     "username": "testuser",
     "password": "test
+=======
+# weather-prediction
+Weather Prediction Full Stack Application
+>>>>>>> 619555a6e161b06c2f4488f0043e8f3d9100a1a7
