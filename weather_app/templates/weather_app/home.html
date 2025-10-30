@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather Prediction App</title>
+    <style>
+        .container { max-width: 600px; margin: 50px auto; padding: 20px; }
+        .form-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; }
+        input, button { display: block; margin: 10px 0; padding: 8px; width: 100%; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Weather Prediction App</h1>
+
+        <!-- Registration Form -->
+        <div class="form-section">
+            <h2>Register</h2>
+            <form id="registerForm">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Register</button>
+            </form>
+            <div id="registerResult"></div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="form-section">
+            <h2>Login</h2>
+            <form id="loginForm">
+                {% csrf_token %}
+                <input type="email" name="email" placeholder="Email" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <div id="loginResult"></div>
+        </div>
+
+        <!-- Weather Prediction Form (initially hidden) -->
+        <div class="form-section" id="predictionSection" style="display:none;">
+            <h2>Weather Prediction</h2>
+            <form id="predictionForm">
+                {% csrf_token %}
+                <input type="text" name="location" placeholder="Enter location (e.g., London,UK)" required>
+                <button type="submit">Get Weather Prediction</button>
+            </form>
+            <div id="predictionResult"></div>
+        </div>
+
+        <!-- Logout Button (initially hidden) -->
+        <div class="form-section" id="logoutSection" style="display:none;">
+            <button id="logoutBtn">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+        // Store authentication state
+        let isAuthenticated = false;
+
+        // Registration
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/register/', {
+    method: 'POST',
+    headers: {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': csrftoken,
+},
+    credentials: 'include',
+    body: JSON.stringify({
+        email: formData.get('email'),
+        username: formData.get('username'),
+        password: formData.get('password')
+    })
+})
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('registerResult');
+                if (data.message) {
+                    resultDiv.innerHTML = `<span class="success">${data.message}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">${JSON.stringify(data)}</span>`;
+                }
+            });
+        });
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/login/', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrftoken,
+    },
+    credentials: 'include',
+    body: JSON.stringify({
+        email: formData.get('email'),
+        password: formData.get('password')
+    })
+})
+
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('loginResult');
+                if (data.message === "Login successful") {
+                    resultDiv.innerHTML = `<span class="success">${data.message}</span>`;
+                    isAuthenticated = true;
+                    document.getElementById('predictionSection').style.display = 'block';
+                    document.getElementById('logoutSection').style.display = 'block';
+                    // Store user info if needed
+                    if (data.user) {
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                    }
+                } else {
+                    resultDiv.innerHTML = `<span class="error">${data.error || JSON.stringify(data)}</span>`;
+                }
+            });
+        });
+
+        // Weather Prediction
+        document.getElementById('predictionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!isAuthenticated) {
+                document.getElementById('predictionResult').innerHTML = 
+                    '<span class="error">Please login first</span>';
+                return;
+            }
+
+            const formData = new FormData(this);
+            const location = formData.get('location');
+            
+            fetch('/predict/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    location: location
+                })
+            })
+            .then(response => {
+                if (response.status === 401) {
+                    throw new Error('Please login again');
+                }
+                return response.json();
+            })
+            .then(data => {
+                const resultDiv = document.getElementById('predictionResult');
+                if (data.current_weather) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>Weather for ${data.location}</h3>
+                            <p>Temperature: ${data.current_weather.temperature}</p>
+                            <p>Humidity: ${data.current_weather.humidity}</p>
+                            <p>Precipitation Probability: ${data.current_weather.precipitation_probability}</p>
+                            <p>Today's Max Precipitation: ${data.today_max_precipitation}</p>
+                        </div>
+                    `;
+                } else if (data.error) {
+                    resultDiv.innerHTML = `<span class="error">Error: ${data.error}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span class="error">Unexpected response: ${JSON.stringify(data)}</span>`;
+                }
+            })
+            .catch(error => {
+                document.getElementById('predictionResult').innerHTML = 
+                    `<span class="error">${error.message}</span>`;
+            });
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            fetch('/logout/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message === "Logout successful") {
+                    isAuthenticated = false;
+                    document.getElementById('predictionSection').style.display = 'none';
+                    document.getElementById('logoutSection').style.display = 'none';
+                    document.getElementById('loginResult').innerHTML = 
+                        '<span class="success">Logout successful</span>';
+                    localStorage.removeItem('user');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
