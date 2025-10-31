@@ -9,6 +9,7 @@ import requests
 from rest_framework.permissions import IsAuthenticated
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from rest_framework.permissions import AllowAny
 
 
 def home_view(request):
@@ -17,6 +18,7 @@ def home_view(request):
 
 class RegisterView(APIView):
     """Handle user registration"""
+    permission_classes = [AllowAny] 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
@@ -32,6 +34,7 @@ class RegisterView(APIView):
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
     """Handle user login"""
+    permission_classes = [AllowAny]
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
